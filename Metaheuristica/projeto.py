@@ -16,6 +16,7 @@ class Calendario:
             print("Alteração no número de partidas por time por dia para atender a condição de max_partidas_por_dia_por_time < num_equipes")
 
         self.grade = self.gerar_grade_inicial()
+        self.ajustar_partidas()
 
     def gerar_grade_inicial(self):
         grade = []
@@ -32,6 +33,31 @@ class Calendario:
                         break
             grade.append(dia)
         return grade
+
+    def ajustar_partidas(self):
+        partidas = {i: 0 for i in range(self.num_equipes)}
+        for dia in self.grade:
+            for confronto in dia:
+                partidas[confronto[0]] += 1
+                partidas[confronto[1]] += 1
+
+        media = sum(partidas.values()) // self.num_equipes
+        for time, num_jogos in partidas.items():
+            if num_jogos < media:
+                deficit = media - num_jogos
+                for _ in range(deficit):
+                    for dia in self.grade:
+                        if len(dia) < self.max_confrontos_por_dia:
+                            time2 = random.choice([t for t in range(self.num_equipes) if t != time])
+                            confronto = (min(time, time2), max(time, time2))
+                            if confronto not in [c for c in dia]:
+                                dia.append(confronto)
+                                partidas[time] += 1
+                                partidas[time2] += 1
+                                break
+
+        # Corrigir limites de partidas por dia
+        self.grade = self.corrigir_max_partidas_por_dia(self.grade)
 
     def cruzar(self, outro):
         ponto_corte = random.randint(0, len(self.grade))
@@ -50,43 +76,21 @@ class Calendario:
         return filho1, filho2
 
     def corrigir_max_partidas_por_dia(self, grade):
-        partidas_por_dia_por_time = [{} for _ in grade]
-        confrontos_usados = set()
-        
-        for dia_idx, dia in enumerate(grade):
-            partidas_por_time = partidas_por_dia_por_time[dia_idx]
-            novos_confrontos_dia = []
+        nova_grade = []
+        for dia in grade:
+            partidas_por_time = {i: 0 for i in range(self.num_equipes)}
+            novo_dia = []
             for confronto in dia:
                 time1, time2 = confronto
-                if partidas_por_time.get(time1, 0) <= self.max_partidas_por_dia_por_time and partidas_por_time.get(time2, 0) <= self.max_partidas_por_dia_por_time:
-                    novos_confrontos_dia.append(confronto)
-                    partidas_por_time[time1] = partidas_por_time.get(time1, 0) + 1
-                    partidas_por_time[time2] = partidas_por_time.get(time2, 0) + 1
-                    confrontos_usados.add(confronto)
-                else:
-                    realocado = False
-                    for novo_dia_idx in range(len(grade)):
-                        if novo_dia_idx == dia_idx:
-                            continue
-                        novo_partidas_por_time = partidas_por_dia_por_time[novo_dia_idx]
-                        if len(grade[novo_dia_idx]) < self.max_confrontos_por_dia and \
-                                novo_partidas_por_time.get(time1, 0) < self.max_partidas_por_dia_por_time and \
-                                novo_partidas_por_time.get(time2, 0) < self.max_partidas_por_dia_por_time and \
-                                confronto not in confrontos_usados:
-                            grade[novo_dia_idx].append(confronto)
-                            novo_partidas_por_time[time1] = novo_partidas_por_time.get(time1, 0) + 1
-                            novo_partidas_por_time[time2] = novo_partidas_por_time.get(time2, 0) + 1
-                            confrontos_usados.add(confronto)
-                            realocado = True
-                            break
-                    if not realocado:
-                        grade.append([confronto])
-                        partidas_por_dia_por_time.append({time1: 1, time2: 1})
-                        confrontos_usados.add(confronto)
-            grade[dia_idx] = novos_confrontos_dia
+                if (partidas_por_time[time1] < self.max_partidas_por_dia_por_time and 
+                    partidas_por_time[time2] < self.max_partidas_por_dia_por_time):
+                    novo_dia.append(confronto)
+                    partidas_por_time[time1] += 1
+                    partidas_por_time[time2] += 1
+            if novo_dia:
+                nova_grade.append(novo_dia)
 
-        grade = [dia for dia in grade if dia]
-        return grade
+        return nova_grade
 
     def mutar(self):
         dia1_idx, dia2_idx = random.sample(range(len(self.grade)), 2)
@@ -110,12 +114,14 @@ class Calendario:
             self.grade[dia1_idx] = dia1_temp
             self.grade[dia2_idx] = dia2_temp
 
+        self.ajustar_partidas()
+
     def verificar_limite_partidas(self, dia):
-        partidas_por_time = {}
+        partidas_por_time = {i: 0 for i in range(self.num_equipes)}
         for confronto in dia:
             time1, time2 = confronto
-            partidas_por_time[time1] = partidas_por_time.get(time1, 0) + 1
-            partidas_por_time[time2] = partidas_por_time.get(time2, 0) + 1
+            partidas_por_time[time1] += 1
+            partidas_por_time[time2] += 1
         return all(count <= self.max_partidas_por_dia_por_time for count in partidas_por_time.values())
 
     def avaliar(self):
@@ -263,4 +269,3 @@ print("\nMelhor solução encontrada:")
 # Exibir o calendário final, com a grade de confrontos por dia
 for dia, confrontos in enumerate(melhor_solucao.grade):
     print(f"Dia {dia + 1}: {confrontos}")
-
