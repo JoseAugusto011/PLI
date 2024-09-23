@@ -97,6 +97,6 @@ for i in range(len(instancias_restricao)):
 
 # Converter a lista de dicionários para um DataFrame
 df_resultado = pd.DataFrame(resultados)
-df_resultado.head()
+
 # Salvar o DataFrame em um arquivo CSV
 df_resultado.to_csv('resultados.csv', index=False)
